@@ -27,13 +27,15 @@ import android.text.InputType;
 import android.text.SpannableString;
 import android.text.Spanned;
 import android.text.TextPaint;
+import android.text.TextUtils;
 import android.text.method.PasswordTransformationMethod;
 import android.text.style.ClickableSpan;
 import android.text.style.UnderlineSpan;
+import android.util.DisplayMetrics;
 import android.view.View;
 import android.view.View.OnClickListener;
+import android.view.ViewGroup.LayoutParams;
 import android.view.WindowManager;
-import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -212,13 +214,6 @@ public class ActFmLoginActivity extends FragmentActivity implements AuthListener
         return link;
     }
 
-    private void setupSignIn(TextView signIn) {
-        signIn.setOnClickListener(signInListener);
-        SpannableString content = new SpannableString(getString(R.string.welcome_sign_in));
-        content.setSpan(new UnderlineSpan(), 0, content.length(), 0);
-        signIn.setText(content);
-    }
-
     @SuppressWarnings("nls")
     protected void initializeUI() {
         facebook = new Facebook(APP_ID);
@@ -236,11 +231,11 @@ public class ActFmLoginActivity extends FragmentActivity implements AuthListener
         if(AmazonMarketStrategy.isKindleFire())
             googleLogin.setVisibility(View.GONE);
         googleLogin.setOnClickListener(googleListener);
-        Button signUp = (Button) findViewById(R.id.pw_signup);
+        TextView signUp = (TextView) findViewById(R.id.pw_signup);
         signUp.setOnClickListener(signUpListener);
 
         TextView signIn = (TextView) findViewById(R.id.pw_login);
-        setupSignIn(signIn);
+        signIn.setOnClickListener(signInListener);
 
         setupTermsOfService((TextView) findViewById(R.id.tos));
     }
@@ -338,6 +333,23 @@ public class ActFmLoginActivity extends FragmentActivity implements AuthListener
                     InputType.TYPE_TEXT_VARIATION_PASSWORD);
             password.setTransformationMethod(new PasswordTransformationMethod());
 
+            TextView forgotPassword = new TextView(ActFmLoginActivity.this);
+            SpannableString text = new SpannableString(getString(R.string.actfm_ALA_forgot_password));
+            text.setSpan(new UnderlineSpan(), 0, text.length(), 0);
+            forgotPassword.setText(text);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+            DisplayMetrics metrics = getResources().getDisplayMetrics();
+            lp.setMargins(0, (int) (8 * metrics.density), 0, (int) (8 * metrics.density));
+            forgotPassword.setLayoutParams(lp);
+            forgotPassword.setOnClickListener(new OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    forgotPassword(email.getText().toString());
+                }
+            });
+            body.addView(forgotPassword);
+
+
             ScrollView bodyScroll = new ScrollView(ActFmLoginActivity.this);
             bodyScroll.addView(body);
 
@@ -361,6 +373,27 @@ public class ActFmLoginActivity extends FragmentActivity implements AuthListener
                     }).show();
         }
     };
+
+    private void forgotPassword(final String email) {
+        if (TextUtils.isEmpty(email)) {
+            DialogUtilities.okDialog(this, getString(R.string.actfm_ALA_enter_email), null);
+        } else {
+            final ProgressDialog pd = DialogUtilities.progressDialog(this, getString(R.string.DLG_please_wait));
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        actFmInvoker.invoke("user_reset_password", "email", email); //$NON-NLS-1$ //$NON-NLS-2$
+                        DialogUtilities.okDialog(ActFmLoginActivity.this, getString(R.string.actfm_ALA_reset_sent, email), null);
+                    } catch (IOException e) {
+                        handleError(e);
+                    } finally {
+                        DialogUtilities.dismissDialog(ActFmLoginActivity.this, pd);
+                    }
+                }
+            }).start();
+        }
+    }
 
     private String generateRandomPassword() {
         String acceptable = "abcdefghijklmnopqrstuvwxyz1234567890"; //$NON-NLS-1$
@@ -565,6 +598,8 @@ public class ActFmLoginActivity extends FragmentActivity implements AuthListener
                             message = getString(R.string.actfm_ALA_error_user_exists);
                         else if ("incorrect_password".equals(code))
                             message = getString(R.string.actfm_ALA_error_wrong_password);
+                        else if ("user_not_found".equals(code))
+                            message = getString(R.string.actfm_ALA_error_user_not_found);
                     }
                 }
                 errors.setText(message);
@@ -582,8 +617,8 @@ public class ActFmLoginActivity extends FragmentActivity implements AuthListener
         if (resultCode == RESULT_CANCELED)
             return;
 
-        if (requestCode == REQUEST_CODE_GOOGLE_ACCOUNTS) {
-            String accounts[] = data.getExtras().getStringArray(
+        if (requestCode == REQUEST_CODE_GOOGLE_ACCOUNTS && data != null && credentialsListener != null) {
+            String accounts[] = data.getStringArrayExtra(
                     GoogleLoginServiceConstants.ACCOUNTS_KEY);
             credentialsListener.getCredentials(accounts);
         } else if (requestCode == LoginButton.REQUEST_CODE_FACEBOOK) {

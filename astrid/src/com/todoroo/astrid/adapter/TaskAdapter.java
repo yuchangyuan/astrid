@@ -88,8 +88,6 @@ import com.todoroo.astrid.helper.AsyncImageView;
 import com.todoroo.astrid.helper.TaskAdapterAddOnManager;
 import com.todoroo.astrid.notes.NotesAction;
 import com.todoroo.astrid.notes.NotesDecorationExposer;
-import com.todoroo.astrid.service.StatisticsConstants;
-import com.todoroo.astrid.service.StatisticsService;
 import com.todoroo.astrid.service.TaskService;
 import com.todoroo.astrid.service.ThemeService;
 import com.todoroo.astrid.tags.TagService;
@@ -139,6 +137,8 @@ public class TaskAdapter extends CursorAdapter implements Filterable {
         Task.NOTES,
         Task.USER_ID,
         Task.USER,
+        Task.REMINDER_LAST,
+        Task.SOCIAL_REMINDER,
         TASK_RABBIT_ID, // Task rabbit metadata id (non-zero means it exists)
         TAGS // Concatenated list of tags
     };
@@ -227,14 +227,13 @@ public class TaskAdapter extends CursorAdapter implements Filterable {
         super(ContextManager.getContext(), c, autoRequery);
         DependencyInjectionService.getInstance().inject(this);
 
-        inflater = (LayoutInflater) fragment.getActivity().getSystemService(
-                Context.LAYOUT_INFLATER_SERVICE);
-
         this.query = query;
         this.resource = resource;
         this.fragment = fragment;
         this.resources = fragment.getResources();
         this.onCompletedTaskListener = onCompletedTaskListener;
+        inflater = (LayoutInflater) fragment.getActivity().getSystemService(
+                Context.LAYOUT_INFLATER_SERVICE);
 
         fontSize = Preferences.getIntegerFromString(R.string.p_fontSize, 18);
         paint = new Paint();
@@ -259,12 +258,21 @@ public class TaskAdapter extends CursorAdapter implements Filterable {
 
     }
 
-    private int computeMinRowHeight() {
+    protected int computeMinRowHeight() {
         DisplayMetrics metrics = resources.getDisplayMetrics();
         if (simpleLayout) {
             return (int) (metrics.density * 40);
         } else {
             return (int) (metrics.density * 45);
+        }
+    }
+
+    public int computeFullRowHeight() {
+        DisplayMetrics metrics = resources.getDisplayMetrics();
+        if (fontSize < 16) {
+            return (int) (39 * metrics.density);
+        } else {
+            return minRowHeight + (int) (10 * metrics.density);
         }
     }
 
@@ -454,8 +462,10 @@ public class TaskAdapter extends CursorAdapter implements Filterable {
             if (taskActionLoader.containsKey(task.getId())) {
                 taskAction.setVisibility(View.VISIBLE);
                 TaskAction action = taskActionLoader.get(task.getId());
-                taskAction.setImageBitmap(action.icon);
-                taskAction.setTag(action);
+                if (action != null) {
+                    taskAction.setImageBitmap(action.icon);
+                    taskAction.setTag(action);
+                }
             } else {
                 taskAction.setVisibility(View.GONE);
                 taskAction.setTag(null);
@@ -1212,9 +1222,6 @@ public class TaskAdapter extends CursorAdapter implements Filterable {
 
             completedItems.put(task.getId(), newState);
             taskService.setComplete(task, newState);
-
-            if(newState)
-                StatisticsService.reportEvent(StatisticsConstants.TASK_COMPLETED_V2);
         }
     }
 

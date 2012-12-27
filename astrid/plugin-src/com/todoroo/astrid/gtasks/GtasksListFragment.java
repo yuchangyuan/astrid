@@ -10,7 +10,6 @@ import android.app.ProgressDialog;
 import android.content.Intent;
 import android.os.Bundle;
 import android.support.v4.view.Menu;
-import android.view.MenuInflater;
 import android.widget.TextView;
 
 import com.timsu.astrid.R;
@@ -27,7 +26,8 @@ import com.todoroo.astrid.data.Task;
 import com.todoroo.astrid.helper.ProgressBarSyncResultCallback;
 import com.todoroo.astrid.service.SyncV2Service;
 import com.todoroo.astrid.service.ThemeService;
-import com.todoroo.astrid.subtasks.OrderedListFragmentHelper;
+import com.todoroo.astrid.subtasks.OrderedListFragmentHelperInterface;
+import com.todoroo.astrid.subtasks.OrderedMetadataListFragmentHelper;
 import com.todoroo.astrid.subtasks.SubtasksListFragment;
 
 public class GtasksListFragment extends SubtasksListFragment {
@@ -60,8 +60,8 @@ public class GtasksListFragment extends SubtasksListFragment {
     };
 
     @Override
-    protected OrderedListFragmentHelper<?> createFragmentHelper() {
-        return new OrderedListFragmentHelper<StoreObject>(this, gtasksTaskListUpdater);
+    protected OrderedListFragmentHelperInterface<?> createFragmentHelper() {
+        return new OrderedMetadataListFragmentHelper<StoreObject>(this, gtasksTaskListUpdater);
     }
 
     @Override
@@ -75,7 +75,7 @@ public class GtasksListFragment extends SubtasksListFragment {
 
         long storeObjectId = extras.getLong(TOKEN_STORE_ID, 0);
         list = storeObjectDao.fetch(storeObjectId, LIST_PROPERTIES);
-        ((OrderedListFragmentHelper<StoreObject>)helper).setList(list);
+        ((OrderedMetadataListFragmentHelper<StoreObject>)helper).setList(list);
     }
 
     @Override
@@ -109,8 +109,8 @@ public class GtasksListFragment extends SubtasksListFragment {
     }
 
     @Override
-    public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
-        super.onCreateOptionsMenu(menu, inflater);
+    protected void addMenuItems(Menu menu, Activity activity) {
+        super.addMenuItems(menu, activity);
         addMenuItem(menu, R.string.gtasks_GTA_clear_completed, android.R.drawable.ic_input_delete, MENU_CLEAR_COMPLETED_ID, false);
     }
 
@@ -169,6 +169,11 @@ public class GtasksListFragment extends SubtasksListFragment {
                 }
             }
         }.start();
+    }
+
+    @Override
+    public Property<?>[] taskProperties() {
+        return helper.taskProperties();
     }
 
     @Override

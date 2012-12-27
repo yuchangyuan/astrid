@@ -80,6 +80,7 @@ import com.todoroo.astrid.api.TaskContextActionExposer;
 import com.todoroo.astrid.api.TaskDecoration;
 import com.todoroo.astrid.core.CoreFilterExposer;
 import com.todoroo.astrid.core.CustomFilterActivity;
+import com.todoroo.astrid.core.CustomFilterExposer;
 import com.todoroo.astrid.core.SortHelper;
 import com.todoroo.astrid.dao.Database;
 import com.todoroo.astrid.data.Metadata;
@@ -196,7 +197,8 @@ public class TaskListFragment extends ListFragment implements OnScrollListener,
 
     private Timer backgroundTimer;
     protected Bundle extras;
-    private boolean isInbox;
+    protected boolean isInbox;
+    protected boolean isTodayFilter;
 
     private final TaskListContextMenuExtensionLoader contextMenuExtensionLoader = new TaskListContextMenuExtensionLoader();
 
@@ -382,6 +384,9 @@ public class TaskListFragment extends ListFragment implements OnScrollListener,
         }
         filter.setFilterQueryOverride(null);
         isInbox = CoreFilterExposer.isInbox(filter);
+        isTodayFilter = false;
+        if (!isInbox)
+            isTodayFilter = CustomFilterExposer.isTodayFilter(filter);
 
         setUpTaskList();
         ((AstridActivity) getActivity()).setupActivityFragment(getActiveTagData());
@@ -423,36 +428,40 @@ public class TaskListFragment extends ListFragment implements OnScrollListener,
      * @return true if menu should be displayed
      */
     @Override
-    public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
+    public final void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
         Activity activity = getActivity();
         if (activity == null)
             return;
         if (!isCurrentTaskListFragment())
             return;
 
+        addMenuItems(menu, activity);
+    }
+
+    protected void addMenuItems(Menu menu, Activity activity) {
         boolean isTablet = AstridPreferences.useTabletLayout(activity);
         TaskListActivity tla = null;
         if (activity instanceof TaskListActivity) {
             tla = (TaskListActivity) activity;
             tla.getMainMenuPopover().clear();
         }
-
         // --- sync
-        if (tla == null || tla.getTaskEditFragment() == null)
+        if (tla == null || tla.getTaskEditFragment() == null && Preferences.getBoolean(R.string.p_show_menu_sync, true))
             addSyncRefreshMenuItem(menu, isTablet ? ThemeService.FLAG_INVERT : 0);
 
         // --- sort
-        if (allowResorting()) {
+        if (allowResorting() && Preferences.getBoolean(R.string.p_show_menu_sort, true)) {
             addMenuItem(menu, R.string.TLA_menu_sort,
                     ThemeService.getDrawable(R.drawable.icn_menu_sort_by_size, isTablet ? ThemeService.FLAG_FORCE_DARK: 0), MENU_SORT_ID, false);
         }
 
         // --- new filter
-        addMenuItem(menu, R.string.FLA_new_filter,
-                ThemeService.getDrawable(R.drawable.icn_menu_filters, isTablet ? ThemeService.FLAG_FORCE_DARK: 0), MENU_NEW_FILTER_ID, false);
+        if (Preferences.getBoolean(R.string.p_use_filters, true))
+            addMenuItem(menu, R.string.FLA_new_filter,
+                    ThemeService.getDrawable(R.drawable.icn_menu_filters, isTablet ? ThemeService.FLAG_FORCE_DARK: 0), MENU_NEW_FILTER_ID, false);
 
         // --- addons
-        if(Constants.MARKET_STRATEGY.showAddonMenu())
+        if(Constants.MARKET_STRATEGY.showAddonMenu() && Preferences.getBoolean(R.string.p_show_menu_addons, true))
             addMenuItem(menu, R.string.TLA_menu_addons,
                 ThemeService.getDrawable(R.drawable.icn_menu_plugins, isTablet ? ThemeService.FLAG_FORCE_DARK : 0), MENU_ADDONS_ID, false);
 
@@ -895,11 +904,34 @@ public class TaskListFragment extends ListFragment implements OnScrollListener,
      * @param withCustomId
      *            force task with given custom id to be part of list
      */
-    @SuppressWarnings("nls")
-    protected void setUpTaskList() {
+    public void setUpTaskList() {
         if (filter == null)
             return;
 
+        TodorooCursor<Task> currentCursor = constructCursor();
+        if (currentCursor == null)
+            return;
+
+        // set up list adapters
+        taskAdapter = createTaskAdapter(currentCursor);
+
+        setListAdapter(taskAdapter);
+        getListView().setOnScrollListener(this);
+        registerForContextMenu(getListView());
+
+        loadTaskListContent(true);
+    }
+
+    public Property<?>[] taskProperties() {
+        return TaskAdapter.PROPERTIES;
+    }
+
+    public Filter getFilter() {
+        return filter;
+    }
+
+    @SuppressWarnings("nls")
+    private TodorooCursor<Task> constructCursor() {
         String tagName = null;
         if (getActiveTagData() != null)
             tagName = getActiveTagData().getValue(TagData.NAME);
@@ -936,35 +968,24 @@ public class TaskListFragment extends ListFragment implements OnScrollListener,
             groupedQuery = sqlQueryTemplate.get() + " GROUP BY " + Task.ID;
         sqlQueryTemplate.set(groupedQuery);
 
-        // perform query
-        TodorooCursor<Task> currentCursor;
+        // Peform query
         try {
-            currentCursor = taskService.fetchFiltered(
+            return taskService.fetchFiltered(
                 sqlQueryTemplate.get(), null, taskProperties());
         } catch (SQLiteException e) {
             // We don't show this error anymore--seems like this can get triggered
             // by a strange bug, but there seems to not be any negative side effect.
             // For now, we'll suppress the error
             // See http://astrid.com/home#tags-7tsoi/task-1119pk
-            return;
+            return null;
         }
-
-        // set up list adapters
-        taskAdapter = createTaskAdapter(currentCursor);
-
-        setListAdapter(taskAdapter);
-        getListView().setOnScrollListener(this);
-        registerForContextMenu(getListView());
-
-        loadTaskListContent(true);
     }
 
-    public Property<?>[] taskProperties() {
-        return TaskAdapter.PROPERTIES;
-    }
-
-    public Filter getFilter() {
-        return filter;
+    public void reconstructCursor() {
+        TodorooCursor<Task> cursor = constructCursor();
+        if (cursor == null)
+            return;
+        taskAdapter.changeCursor(cursor);
     }
 
     /**
@@ -1071,10 +1092,13 @@ public class TaskListFragment extends ListFragment implements OnScrollListener,
      * Comments button in action bar was clicked
      */
     protected void handleCommentsButtonClicked() {
-        Intent intent = new Intent(getActivity(), CommentsActivity.class);
-        intent.putExtra(TagViewFragment.EXTRA_TAG_DATA, getActiveTagData());
-        startActivity(intent);
-        AndroidUtilities.callOverridePendingTransition(getActivity(), R.anim.slide_left_in, R.anim.slide_left_out);
+        Activity activity = getActivity();
+        if (activity != null) {
+            Intent intent = new Intent(activity, CommentsActivity.class);
+            intent.putExtra(TagViewFragment.EXTRA_TAG_DATA, getActiveTagData());
+            startActivity(intent);
+            AndroidUtilities.callOverridePendingTransition(activity, R.anim.slide_left_in, R.anim.slide_left_out);
+        }
     }
 
     @Override
@@ -1145,6 +1169,10 @@ public class TaskListFragment extends ListFragment implements OnScrollListener,
                 }).setNegativeButton(android.R.string.cancel, null).show();
     }
 
+    public void onTaskCreated(Task task) {
+        incrementFilterCount();
+    }
+
     protected void onTaskDelete(Task task) {
         decrementFilterCount();
 
@@ -1199,9 +1227,12 @@ public class TaskListFragment extends ListFragment implements OnScrollListener,
             return true;
         case MENU_SORT_ID:
             StatisticsService.reportEvent(StatisticsConstants.TLA_MENU_SORT);
-            AlertDialog dialog = SortSelectionActivity.createDialog(
-                    getActivity(), hasDraggableOption(), this, sortFlags, sortSort);
-            dialog.show();
+            Activity activity = getActivity();
+            if (activity != null) {
+                AlertDialog dialog = SortSelectionActivity.createDialog(
+                        getActivity(), hasDraggableOption(), this, sortFlags, sortSort);
+                dialog.show();
+            }
             return true;
         case MENU_SYNC_ID:
             StatisticsService.reportEvent(StatisticsConstants.TLA_MENU_SYNC);
@@ -1330,7 +1361,7 @@ public class TaskListFragment extends ListFragment implements OnScrollListener,
     }
 
     protected boolean hasDraggableOption() {
-        return isInbox;
+        return isInbox || isTodayFilter;
     }
 
     @Override

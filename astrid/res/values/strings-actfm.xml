@@ -234,15 +234,11 @@
   <!-- share login: Sharing Login GG Prompt -->
   <string name="actfm_ALA_gg_login">Connect with Google</string>
   
-  <!-- share login: Sharing Footer Password Label -->
+  <!-- share login: Quickly log in as <%s -> email> -->
+  <string name="actfm_quick_login">Sign in: %s</string>
 
-  <!-- share login: Sharing Password Link -->
-
-  <!-- share login: Password Are you a New User? -->
-
-  <!-- share login: Password Are you a Returning User? -->
-
-  <!-- share login: Name -->
+  <!-- share login: Reject quick login -->
+  <string name="actfm_quick_login_reject">Not %s?</string>
 
   <!-- share login: Name -->
   <string name="actfm_ALA_firstname_label">First Name</string>
@@ -275,6 +271,18 @@
   
   <!-- Login error: wrong password -->
   <string name="actfm_ALA_error_wrong_password">Sorry, that password was incorrect. Please try again.</string>
+  
+  <!-- Forgot password link -->
+  <string name="actfm_ALA_forgot_password">Forgot password?</string>
+  
+  <!-- Forgot password email prompt -->
+  <string name="actfm_ALA_enter_email">Please enter your email</string>
+  
+  <!-- Password reset sent (%s -> email) -->
+  <string name="actfm_ALA_reset_sent">Password reset sent to %s</string>
+  
+  <!-- User not found -->
+  <string name="actfm_ALA_error_user_not_found">User not found by that email. Try signing up instead!</string>
   
   <!-- ================================================ Featured Lists -->
 

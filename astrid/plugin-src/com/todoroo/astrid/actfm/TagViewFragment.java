@@ -17,6 +17,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
 import android.support.v4.view.Menu;
+import android.support.v4.view.MenuItem;
 import android.text.TextUtils;
 import android.util.DisplayMetrics;
 import android.view.MotionEvent;
@@ -70,7 +71,7 @@ public class TagViewFragment extends TaskListFragment {
 
     private static final String LAST_FETCH_KEY = "tag-fetch-"; //$NON-NLS-1$
 
-    public static final String BROADCAST_TAG_ACTIVITY = AstridApiConstants.PACKAGE + ".TAG_ACTIVITY"; //$NON-NLS-1$
+    public static final String BROADCAST_TAG_ACTIVITY = AstridApiConstants.API_PACKAGE + ".TAG_ACTIVITY"; //$NON-NLS-1$
 
     public static final String EXTRA_TAG_NAME = "tag"; //$NON-NLS-1$
     public static final String EXTRA_TAG_REMOTE_ID = "remoteId"; //$NON-NLS-1$
@@ -78,6 +79,7 @@ public class TagViewFragment extends TaskListFragment {
     public static final String EXTRA_TAG_DATA = "tagData"; //$NON-NLS-1$
 
     protected static final int MENU_REFRESH_ID = MENU_SUPPORT_ID + 1;
+    protected static final int MENU_LIST_SETTINGS_ID = R.string.tag_settings_title;
 
     private static final int REQUEST_CODE_SETTINGS = 0;
 
@@ -180,6 +182,16 @@ public class TagViewFragment extends TaskListFragment {
                     ThemeService.getDrawable(R.drawable.icn_menu_refresh, themeFlags), MENU_REFRESH_ID, true);
         } else {
             super.addSyncRefreshMenuItem(menu, themeFlags);
+        }
+    }
+
+    @Override
+    protected void addMenuItems(Menu menu, Activity activity) {
+        super.addMenuItems(menu, activity);
+        if (!Preferences.getBoolean(R.string.p_show_list_members, true)) {
+            MenuItem item = menu.add(Menu.NONE, MENU_LIST_SETTINGS_ID, 0, R.string.tag_settings_title);
+            item.setIcon(ThemeService.getDrawable(R.drawable.list_settings));
+            item.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
         }
     }
 
@@ -291,23 +303,29 @@ public class TagViewFragment extends TaskListFragment {
 
     /** refresh the list with latest data from the web */
     private void refreshData(final boolean manual) {
-        ((TextView)taskListView.findViewById(android.R.id.empty)).setText(R.string.DLG_loading);
+        if (actFmPreferenceService.isLoggedIn()) {
+            ((TextView)taskListView.findViewById(android.R.id.empty)).setText(R.string.DLG_loading);
 
-        syncService.synchronizeList(tagData, manual, new ProgressBarSyncResultCallback(getActivity(), this,
-                R.id.progressBar, new Runnable() {
-            @Override
-            public void run() {
-                if (manual)
-                    ContextManager.getContext().sendBroadcast(new Intent(AstridApiConstants.BROADCAST_EVENT_REFRESH));
-                else
-                    refresh();
-                ((TextView)taskListView.findViewById(android.R.id.empty)).setText(R.string.TLA_no_items);
-            }
-        }));
-        Preferences.setLong(LAST_FETCH_KEY + tagData.getId(), DateUtilities.now());
+            syncService.synchronizeList(tagData, manual, new ProgressBarSyncResultCallback(getActivity(), this,
+                    R.id.progressBar, new Runnable() {
+                @Override
+                public void run() {
+                    if (manual)
+                        ContextManager.getContext().sendBroadcast(new Intent(AstridApiConstants.BROADCAST_EVENT_REFRESH));
+                    else
+                        refresh();
+                    ((TextView)taskListView.findViewById(android.R.id.empty)).setText(R.string.TLA_no_items);
+                }
+            }));
+            Preferences.setLong(LAST_FETCH_KEY + tagData.getId(), DateUtilities.now());
+        }
     }
 
     protected void setUpMembersGallery() {
+        if (!Preferences.getBoolean(R.string.p_show_list_members, true)) {
+            getView().findViewById(R.id.members_header).setVisibility(View.GONE);
+            return;
+        }
         if (tagData == null)
             return;
         LinearLayout membersView = (LinearLayout)getView().findViewById(R.id.shared_with);
@@ -543,6 +561,9 @@ public class TagViewFragment extends TaskListFragment {
         switch (id) {
         case MENU_REFRESH_ID:
             refreshData(true);
+            return true;
+        case MENU_LIST_SETTINGS_ID:
+            settingsListener.onClick(null);
             return true;
         }
 

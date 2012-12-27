@@ -33,7 +33,7 @@ public final class TagData extends RemoteModel {
     public static final Table TABLE = new Table("tagdata", TagData.class);
 
     /** content uri for this model */
-    public static final Uri CONTENT_URI = Uri.parse("content://" + AstridApiConstants.PACKAGE + "/" +
+    public static final Uri CONTENT_URI = Uri.parse("content://" + AstridApiConstants.API_PACKAGE + "/" +
             TABLE.name);
 
     // --- properties
@@ -114,6 +114,10 @@ public final class TagData extends RemoteModel {
     public static final StringProperty TAG_DESCRIPTION = new StringProperty(
             TABLE, "tagDescription");
 
+    /** Tag ordering */
+    public static final StringProperty TAG_ORDERING = new StringProperty(
+            TABLE, "tagOrdering");
+
     /** List of all properties for this model */
     public static final Property<?>[] PROPERTIES = generateProperties(TagData.class);
 
@@ -154,6 +158,7 @@ public final class TagData extends RemoteModel {
         defaultValues.put(IS_UNREAD.name, 0);
         defaultValues.put(TASK_COUNT.name, 0);
         defaultValues.put(TAG_DESCRIPTION.name, "");
+        defaultValues.put(TAG_ORDERING.name, "[]");
     }
 
     @Override

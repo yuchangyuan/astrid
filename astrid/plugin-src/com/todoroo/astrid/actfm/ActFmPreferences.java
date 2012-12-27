@@ -15,6 +15,7 @@ import android.os.Bundle;
 import android.preference.Preference;
 import android.preference.Preference.OnPreferenceClickListener;
 import android.preference.PreferenceCategory;
+import android.preference.PreferenceScreen;
 import android.widget.Toast;
 
 import com.timsu.astrid.R;
@@ -24,6 +25,8 @@ import com.todoroo.astrid.actfm.sync.ActFmPreferenceService;
 import com.todoroo.astrid.actfm.sync.ActFmSyncV2Provider;
 import com.todoroo.astrid.billing.BillingActivity;
 import com.todoroo.astrid.gtasks.GtasksPreferenceService;
+import com.todoroo.astrid.service.StatisticsConstants;
+import com.todoroo.astrid.service.StatisticsService;
 import com.todoroo.astrid.sync.SyncProviderPreferences;
 import com.todoroo.astrid.sync.SyncProviderUtilities;
 import com.todoroo.astrid.utility.Constants;
@@ -69,13 +72,18 @@ public class ActFmPreferences extends SyncProviderPreferences {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        findPreference(getString(R.string.actfm_inapp_billing)).setOnPreferenceClickListener(new OnPreferenceClickListener() {
-            @Override
-            public boolean onPreferenceClick(Preference preference) {
-                handleInAppBillingClicked();
-                return true;
-            }
-        });
+        PreferenceScreen screen = getPreferenceScreen();
+        Preference inAppBilling = findPreference(getString(R.string.actfm_inapp_billing));
+        if (Constants.ASTRID_LITE)
+            screen.removePreference(inAppBilling);
+        else
+            inAppBilling.setOnPreferenceClickListener(new OnPreferenceClickListener() {
+                @Override
+                public boolean onPreferenceClick(Preference preference) {
+                    handleInAppBillingClicked();
+                    return true;
+                }
+            });
 
         findPreference(getString(R.string.actfm_account_type)).setOnPreferenceClickListener(new OnPreferenceClickListener() {
             @Override
@@ -184,6 +192,7 @@ public class ActFmPreferences extends SyncProviderPreferences {
         } else {
             Intent intent = new Intent(this, BillingActivity.class);
             startActivity(intent);
+            StatisticsService.reportEvent(StatisticsConstants.PREMIUM_PAGE_VIEWED);
         }
     }
 

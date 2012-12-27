@@ -9,7 +9,6 @@ import android.support.v4.view.MenuItem;
 import android.text.TextUtils;
 import android.view.ContextMenu;
 import android.view.ContextMenu.ContextMenuInfo;
-import android.view.MenuInflater;
 import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -27,6 +26,8 @@ import com.todoroo.astrid.dao.TaskDao.TaskCriteria;
 import com.todoroo.astrid.data.TagData;
 import com.todoroo.astrid.data.Task;
 import com.todoroo.astrid.helper.AsyncImageView;
+import com.todoroo.astrid.service.StatisticsConstants;
+import com.todoroo.astrid.service.StatisticsService;
 import com.todoroo.astrid.service.TagDataService;
 import com.todoroo.astrid.tags.TagFilterExposer;
 import com.todoroo.astrid.tags.TagService.Tag;
@@ -62,10 +63,8 @@ public class FeaturedTaskListFragment extends TagViewFragment {
     }
 
     @Override
-    public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
-        super.onCreateOptionsMenu(menu, inflater);
-        if (!isCurrentTaskListFragment())
-            return;
+    protected void addMenuItems(Menu menu, Activity activity) {
+        super.addMenuItems(menu, activity);
         MenuItem item = menu.add(Menu.NONE, MENU_CLONE_LIST, 0, R.string.actfm_feat_list_clone);
         item.setIcon(R.drawable.ic_menu_list_copy);
         item.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
@@ -114,11 +113,13 @@ public class FeaturedTaskListFragment extends TagViewFragment {
     }
 
     private void cloneList() {
-     // Clone list
+        // Clone list
         if (taskAdapter == null || taskAdapter.getCount() == 0) {
             Toast.makeText(getActivity(), R.string.actfm_feat_list_clone_empty, Toast.LENGTH_LONG).show();
             return;
         }
+
+        StatisticsService.reportEvent(StatisticsConstants.FEATURED_LIST_CLONED);
         final String localName = tagData.getValue(TagData.NAME) + " " + getString(R.string.actfm_feat_list_suffix); //$NON-NLS-1$
         long remoteId = 0;
         TodorooCursor<TagData> existing = tagDataService.query(Query.select(TagData.REMOTE_ID)

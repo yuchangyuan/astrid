@@ -10,7 +10,6 @@ import android.view.View;
 import android.view.ViewGroup;
 
 import com.timsu.astrid.R;
-import com.todoroo.andlib.data.Property;
 import com.todoroo.andlib.data.TodorooCursor;
 import com.todoroo.astrid.activity.TaskListFragment;
 import com.todoroo.astrid.adapter.TaskAdapter;
@@ -24,7 +23,7 @@ import com.todoroo.astrid.data.Task;
  */
 public class SubtasksListFragment extends TaskListFragment {
 
-    protected OrderedListFragmentHelper<?> helper;
+    protected OrderedListFragmentHelperInterface<?> helper;
 
     @Override
     public void onActivityCreated(Bundle savedInstanceState) {
@@ -32,10 +31,9 @@ public class SubtasksListFragment extends TaskListFragment {
         super.onActivityCreated(savedInstanceState);
     }
 
-    protected OrderedListFragmentHelper<?> createFragmentHelper() {
-        OrderedListFragmentHelper<String> olfh =
-            new OrderedListFragmentHelper<String>(this, new SubtasksUpdater());
-        olfh.setList(SubtasksMetadata.LIST_ACTIVE_TASKS);
+    protected OrderedListFragmentHelperInterface<?> createFragmentHelper() {
+        AstridOrderedListFragmentHelper<String> olfh =
+            new AstridOrderedListFragmentHelper<String>(this, new SubtasksFilterUpdater());
         return olfh;
     }
 
@@ -52,7 +50,13 @@ public class SubtasksListFragment extends TaskListFragment {
     }
 
     @Override
-    protected void setUpTaskList() {
+    public void setUpTaskList() {
+        if (helper instanceof AstridOrderedListFragmentHelper) {
+            if (isTodayFilter)
+                ((AstridOrderedListFragmentHelper<String>) helper).setList(SubtasksUpdater.TODAY_TASKS_ORDER);
+            else if (isInbox)
+                ((AstridOrderedListFragmentHelper<String>) helper).setList(SubtasksUpdater.ACTIVE_TASKS_ORDER);
+        }
         helper.beforeSetUpTaskList(filter);
 
         super.setUpTaskList();
@@ -61,14 +65,14 @@ public class SubtasksListFragment extends TaskListFragment {
     }
 
     @Override
-    public Property<?>[] taskProperties() {
-        return helper.taskProperties();
-    }
-
-
-    @Override
     protected boolean isDraggable() {
         return true;
+    }
+
+    @Override
+    public void onTaskCreated(Task task) {
+        super.onTaskCreated(task);
+        helper.onCreateTask(task);
     }
 
     @Override
@@ -80,6 +84,11 @@ public class SubtasksListFragment extends TaskListFragment {
     @Override
     protected TaskAdapter createTaskAdapter(TodorooCursor<Task> cursor) {
         return helper.createTaskAdapter(cursor, sqlQueryTemplate);
+    }
+
+    @Override
+    protected void refresh() {
+        setUpTaskList();
     }
 
 }

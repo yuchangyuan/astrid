@@ -70,7 +70,7 @@ public class TagSettingsActivity extends FragmentActivity {
     public static final int REQUEST_ACTFM_LOGIN = 3;
 
     public static final String TOKEN_AUTOPOPULATE_MEMBERS = "autopopulateMembers"; //$NON-NLS-1$
-    
+
     public static final String TOKEN_AUTOPOPULATE_NAME = "autopopulateName"; //$NON-NLS-1$
 
     private static final String MEMBERS_IN_PROGRESS = "members"; //$NON-NLS-1$
@@ -148,8 +148,13 @@ public class TagSettingsActivity extends FragmentActivity {
         isDialog = AstridPreferences.useTabletLayout(this);
         if (isDialog)
             setTheme(ThemeService.getDialogTheme());
-        else
+        else {
             ThemeService.applyTheme(this);
+            if (ThemeService.getUnsimplifiedTheme() == R.style.Theme_White_Alt)
+                getTheme().applyStyle(R.style.SaveAsBackWhite, true);
+            else
+                getTheme().applyStyle(R.style.SaveAsBack, true);
+        }
     }
 
     private void showCollaboratorsPopover() {
@@ -232,7 +237,7 @@ public class TagSettingsActivity extends FragmentActivity {
             updateMembers(autopopulateMembers);
             getIntent().removeExtra(TOKEN_AUTOPOPULATE_MEMBERS);
         }
-        
+
         String autopopulateName = getIntent().getStringExtra(TOKEN_AUTOPOPULATE_NAME);
         if (!TextUtils.isEmpty(autopopulateName)) {
             tagName.setText(autopopulateName);
@@ -493,12 +498,14 @@ public class TagSettingsActivity extends FragmentActivity {
     public boolean onCreateOptionsMenu(Menu menu) {
         MenuItem item;
         item = menu.add(Menu.NONE, MENU_DISCARD_ID, 0, R.string.TEA_menu_discard);
-        item.setIcon(R.drawable.ic_menu_close);
+        item.setIcon(ThemeService.getDrawable(R.drawable.ic_menu_close));
         item.setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);
 
-        item = menu.add(Menu.NONE, MENU_SAVE_ID, 0, R.string.TEA_menu_save);
-        item.setIcon(R.drawable.ic_menu_save);
-        item.setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);
+        if (isDialog) {
+            item = menu.add(Menu.NONE, MENU_SAVE_ID, 0, R.string.TEA_menu_save);
+            item.setIcon(ThemeService.getDrawable(R.drawable.ic_menu_save));
+            item.setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);
+        }
         return super.onCreateOptionsMenu(menu);
     }
 
@@ -512,7 +519,9 @@ public class TagSettingsActivity extends FragmentActivity {
             saveSettings();
             break;
         case android.R.id.home:
-            finish();
+            saveSettings();
+            if (!isFinishing())
+                finish();
             break;
         }
         return super.onOptionsItemSelected(item);

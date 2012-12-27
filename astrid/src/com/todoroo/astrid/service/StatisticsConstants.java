@@ -12,6 +12,8 @@ public class StatisticsConstants {
     public static final String ACTFM_TASK_COMMENT = "actfm-task-comment";
     public static final String ACTFM_NEW_USER = "actfm-new-user";
     public static final String TASK_COMPLETED_V2 = "task-completed-v2";
+    public static final String TASK_COMPLETED_ONE_DAY = "task-completed-one-day";
+    public static final String TASK_COMPLETED_ONE_WEEK = "task-completed-one-week";
     public static final String USER_FIRST_TASK = "user-first-task";
     public static final String USER_FIRST_LIST = "user-first-list";
     public static final String LOST_TASKS_RESTORED = "lost-tasks-restored";
@@ -73,6 +75,14 @@ public class StatisticsConstants {
     public static final String TASK_RABBIT_LOGIN = "task-rabbit-login";
     public static final String SHARE_PAGE_VIEWED = "share-page-viewed";
     public static final String SHARE_BUTTON_CLICKED = "share-button-clicked";
+    public static final String PREMIUM_PAGE_VIEWED = "premium-page-viewed";
+    public static final String FEATURED_LIST_CLONED = "featured-list-cloned";
+    public static final String RANDOM_REMINDER_SAVED = "random-rmdr-save";
+    public static final String PREFS_RESET_DEFAULT = "prefs-reset-default";
+    public static final String PREFS_RESET_LITE = "prefs-reset-lite";
+
+    public static final String ACTFM_LOGIN_SIMPLE = "actfm-login-simple";
+    public static final String ACTFM_LOGIN_SIMPLE_REJECTED = "actfm-login-simple-rejected";
 
     public static final String SUBTASKS_HAS_TASKS = "subtasks-has-tasks";
     public static final String SUBTASKS_ORDER_USED = "subtasks-order-used";
@@ -86,9 +96,4 @@ public class StatisticsConstants {
     public static final String PREF_SHOW_FEATURED_LISTS = "pref-show-featured-lists";
 
     public static final String PREF_CHANGED_PREFIX = "pref-changed-";
-
-    public static final String TASK_THREE_DAYS = "task-created-three-days";
-    public static final String TASK_ONE_WEEK = "task-created-one-week";
-    public static final String TASK_TWO_WEEKS = "task-created-two-weeks";
-    public static final String TASK_THREE_WEEKS = "task-created-three-weeks";
 }

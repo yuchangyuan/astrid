@@ -140,9 +140,15 @@ public class TasksWidget extends AppWidgetProvider {
             if(intent != null)
                 extrasId = intent.getIntExtra(EXTRA_WIDGET_ID, extrasId);
             if(extrasId == AppWidgetManager.INVALID_APPWIDGET_ID) {
-                for(int id : manager.getAppWidgetIds(thisWidget)) {
-                    RemoteViews updateViews = buildUpdate(this, id);
-                    manager.updateAppWidget(id, updateViews);
+                int[] ids;
+                try {
+                    ids = manager.getAppWidgetIds(thisWidget);
+                    for(int id : ids) {
+                        RemoteViews updateViews = buildUpdate(this, id);
+                        manager.updateAppWidget(id, updateViews);
+                    }
+                } catch (RuntimeException e) {
+                    // "System server dead" was sometimes thrown here by the OS. Abort if that happens
                 }
             } else {
                 int id = extrasId;
@@ -342,6 +348,10 @@ public class TasksWidget extends AppWidgetProvider {
                 layout = R.layout.widget_initialized_red;
                 titleColor = r.getColor(R.color.widget_text_color_light);
                 buttonDrawable = R.drawable.plus_button_red;
+            } else if (theme == R.style.Theme_White_Alt)  {
+                layout = R.layout.widget_initialized;
+                titleColor = r.getColor(R.color.widget_text_color_light);
+                buttonDrawable = R.drawable.plus_button_blue;
             } else {
                 layout = (theme == R.style.Theme_TransparentWhite ? R.layout.widget_initialized_transparent : R.layout.widget_initialized);
                 titleColor = r.getColor(R.color.widget_text_color_light);

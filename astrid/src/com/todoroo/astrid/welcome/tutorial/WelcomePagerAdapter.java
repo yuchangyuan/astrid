@@ -21,11 +21,14 @@ import com.timsu.astrid.R;
 import com.todoroo.andlib.service.Autowired;
 import com.todoroo.andlib.service.DependencyInjectionService;
 import com.todoroo.astrid.actfm.sync.ActFmPreferenceService;
+import com.todoroo.astrid.service.abtesting.ABChooser;
+import com.todoroo.astrid.service.abtesting.ABTests;
+import com.todoroo.astrid.utility.Constants;
 import com.viewpagerindicator.TitleProvider;
 
 public class WelcomePagerAdapter extends PagerAdapter implements TitleProvider
 {
-    private static int[] images = new int[] {
+    private int[] images = new int[] {
         R.drawable.welcome_walkthrough_1,
         R.drawable.welcome_walkthrough_2,
         R.drawable.welcome_walkthrough_3,
@@ -34,7 +37,7 @@ public class WelcomePagerAdapter extends PagerAdapter implements TitleProvider
         R.drawable.welcome_walkthrough_6,
         0
     };
-    private static int[] title = new int[] {
+    private int[] title = new int[] {
         R.string.welcome_title_1,
         R.string.welcome_title_2,
         R.string.welcome_title_3,
@@ -43,7 +46,7 @@ public class WelcomePagerAdapter extends PagerAdapter implements TitleProvider
         R.string.welcome_title_6,
         R.string.welcome_title_7,
     };
-    private static int[] body = new int[] {
+    private int[] body = new int[] {
         R.string.welcome_body_1,
         R.string.welcome_body_2,
         R.string.welcome_body_3,
@@ -52,7 +55,7 @@ public class WelcomePagerAdapter extends PagerAdapter implements TitleProvider
         R.string.welcome_body_6,
         R.string.welcome_body_7,
     };
-    private static int[] layouts = new int[] {
+    public int[] layouts = new int[] {
         R.layout.welcome_walkthrough_page,
         R.layout.welcome_walkthrough_page,
         R.layout.welcome_walkthrough_page,
@@ -61,6 +64,8 @@ public class WelcomePagerAdapter extends PagerAdapter implements TitleProvider
         R.layout.welcome_walkthrough_page,
         R.layout.welcome_walkthrough_login_page,
     };
+
+    public int fallbackLoginPage;
 
     private final Context context;
     public WelcomeWalkthrough parent;
@@ -75,7 +80,42 @@ public class WelcomePagerAdapter extends PagerAdapter implements TitleProvider
             title[title.length - 1] = R.string.welcome_title_7_return;
             images[images.length - 1] = R.drawable.welcome_walkthrough_1;
             body[body.length - 1] = R.string.welcome_body_7_return;
+            fallbackLoginPage = R.layout.welcome_walkthrough_page;
+        } else {
+            if (Constants.ASTRID_LITE) {
+                adjustResourcesForLite();
+            }
+
+            // Setup login page from AB tests
+            fallbackLoginPage = layouts[layouts.length - 1];
+            if (ABChooser.readChoiceForTest(ABTests.AB_NEW_LOGIN_YES_GOOGLE) != ABChooser.NO_OPTION) {
+                int choice = ABChooser.readChoiceForTest(ABTests.AB_NEW_LOGIN_YES_GOOGLE);
+                switch (choice) {
+                case 1:
+                    fallbackLoginPage = layouts[layouts.length - 1] = R.layout.actfm_login_activity;
+                    break;
+                case 2:
+                    layouts[layouts.length - 1] = R.layout.welcome_walkthrough_simple_login;
+                    fallbackLoginPage = R.layout.actfm_login_activity;
+                    break;
+                default:
+                    fallbackLoginPage = layouts[layouts.length - 1];
+                    break;
+                }
+            } else if (ABChooser.readChoiceForTest(ABTests.AB_NEW_LOGIN_NO_GOOGLE) != ABChooser.NO_OPTION) {
+                int choice = ABChooser.readChoiceForTest(ABTests.AB_NEW_LOGIN_NO_GOOGLE);
+                fallbackLoginPage = layouts[layouts.length - 1];
+                if (choice == 1)
+                    fallbackLoginPage = layouts[layouts.length - 1] = R.layout.actfm_login_activity;
+            }
         }
+    }
+
+    private void adjustResourcesForLite() {
+        images = new int[] { 0 };
+        title = new int[] { R.string.welcome_title_7 };
+        body = new int[] { R.string.welcome_body_7 };
+        layouts = new int[] { R.layout.welcome_walkthrough_login_page };
     }
 
     @Override
@@ -89,6 +129,11 @@ public class WelcomePagerAdapter extends PagerAdapter implements TitleProvider
     @Override
     public int getCount() {
         return layouts.length;
+    }
+
+    public void changeLoginPage(int newLayout) {
+        layouts[layouts.length - 1] = newLayout;
+        notifyDataSetChanged();
     }
 
     @Override

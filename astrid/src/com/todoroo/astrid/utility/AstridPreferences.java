@@ -5,10 +5,9 @@
  */
 package com.todoroo.astrid.utility;
 
+
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.content.SharedPreferences.Editor;
-import android.content.res.Resources;
 
 import com.timsu.astrid.R;
 import com.todoroo.andlib.data.TodorooCursor;
@@ -20,11 +19,8 @@ import com.todoroo.andlib.utility.Preferences;
 import com.todoroo.astrid.api.AstridApiConstants;
 import com.todoroo.astrid.core.PluginServices;
 import com.todoroo.astrid.data.TagData;
-import com.todoroo.astrid.data.Task;
 import com.todoroo.astrid.data.User;
-import com.todoroo.astrid.service.ThemeService;
-import com.todoroo.astrid.service.abtesting.ABChooser;
-import com.todoroo.astrid.service.abtesting.ABTests;
+import com.todoroo.astrid.service.UpgradeService;
 import com.todoroo.astrid.tags.reusable.FeaturedListFilterExposer;
 
 public class AstridPreferences {
@@ -49,51 +45,39 @@ public class AstridPreferences {
 
     /** Set preference defaults, if unset. called at startup */
     public static void setPreferenceDefaults() {
-        Context context = ContextManager.getContext();
-        SharedPreferences prefs = Preferences.getPrefs(context);
-        Editor editor = prefs.edit();
-        Resources r = context.getResources();
+        AstridPreferenceSpec spec;
+        if (Constants.ASTRID_LITE)
+            spec = new AstridLitePreferenceSpec();
+        else
+            spec = new AstridDefaultPreferenceSpec();
 
-        Preferences.setIfUnset(prefs, editor, r, R.string.p_default_urgency_key, 0);
-        Preferences.setIfUnset(prefs, editor, r, R.string.p_default_importance_key, 2);
-        Preferences.setIfUnset(prefs, editor, r, R.string.p_default_hideUntil_key, 0);
-        Preferences.setIfUnset(prefs, editor, r, R.string.p_default_reminders_key, Task.NOTIFY_AT_DEADLINE | Task.NOTIFY_AFTER_DEADLINE);
-        Preferences.setIfUnset(prefs, editor, r, R.string.p_rmd_default_random_hours, 0);
-        Preferences.setIfUnset(prefs, editor, r, R.string.p_fontSize, 16);
-        Preferences.setIfUnset(prefs, editor, r, R.string.p_showNotes, false);
-
-        Preferences.setIfUnset(prefs, editor, r, R.string.p_use_contact_picker, true);
-        Preferences.setIfUnset(prefs, editor, r, R.string.p_field_missed_calls, true);
-
-        Preferences.setIfUnset(prefs, editor, r, R.string.p_third_party_addons, false);
-        Preferences.setIfUnset(prefs, editor, r, R.string.p_end_at_deadline, true);
-
-        Preferences.setIfUnset(prefs, editor, r, R.string.p_rmd_persistent, true);
-
-        Preferences.setIfUnset(prefs, editor, r, R.string.p_ideas_tab_enabled, true);
-
-        Preferences.setIfUnset(prefs, editor, r, R.string.p_show_featured_lists,
-                ABChooser.readChoiceForTest(ABTests.AB_FEATURED_LISTS) != 0);
-
-        Preferences.setIfUnset(prefs, editor, r, R.string.p_taskRowStyle,
-                ABChooser.readChoiceForTest(ABTests.AB_SIMPLE_TASK_ROW) != 0);
-
-        Preferences.setIfUnset(prefs, editor, r, R.string.p_calendar_reminders,
-                ABChooser.readChoiceForTest(ABTests.AB_CALENDAR_REMINDERS) != 0);
-
-        if ("white-blue".equals(Preferences.getStringValue(R.string.p_theme))) { //$NON-NLS-1$ migrate from when white-blue wasn't the default
-            Preferences.setString(R.string.p_theme, ThemeService.THEME_WHITE);
-        }
-
-        if (Constants.MARKET_STRATEGY.defaultPhoneLayout()) {
-            Preferences.setIfUnset(prefs, editor, r, R.string.p_force_phone_layout, true);
-        }
+        spec.setIfUnset();
 
         setShowFriendsView();
 
         setShowFeaturedLists();
 
-        editor.commit();
+    }
+
+    public static void resetToDefaults() {
+        AstridPreferenceSpec spec;
+        if (Constants.ASTRID_LITE)
+            spec = new AstridLitePreferenceSpec();
+        else
+            spec = new AstridDefaultPreferenceSpec();
+
+        spec.resetDefaults();
+    }
+
+    /**
+     * Reset preferences based on archived AB tests
+     * @param fromVersion
+     */
+    public static void resetPreferencesFromAbTests(long fromVersion) {
+        Context context = ContextManager.getContext();
+        if (fromVersion < UpgradeService.V4_4_2) {
+            Preferences.clear(context.getString(R.string.p_calendar_reminders));
+        }
     }
 
     private static void setShowFriendsView() {

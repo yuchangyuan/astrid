@@ -1,27 +1,18 @@
-/**
- * Copyright (c) 2012 Todoroo Inc
- *
- * See the file "LICENSE" for the full license governing this code.
- */
 package com.todoroo.astrid.subtasks;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
 import android.app.Activity;
-import android.content.Context;
 import android.database.Cursor;
 import android.text.TextUtils;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.util.TypedValue;
 import android.view.View;
-import android.view.ViewGroup;
-import android.view.ViewGroup.MarginLayoutParams;
 import android.widget.ListView;
 
 import com.commonsware.cwac.tlv.TouchListView.DropListener;
@@ -32,6 +23,9 @@ import com.todoroo.andlib.data.Property;
 import com.todoroo.andlib.data.TodorooCursor;
 import com.todoroo.andlib.service.Autowired;
 import com.todoroo.andlib.service.DependencyInjectionService;
+import com.todoroo.andlib.sql.Criterion;
+import com.todoroo.andlib.sql.Functions;
+import com.todoroo.andlib.sql.Query;
 import com.todoroo.andlib.utility.DateUtilities;
 import com.todoroo.andlib.utility.DialogUtilities;
 import com.todoroo.andlib.utility.Preferences;
@@ -39,20 +33,18 @@ import com.todoroo.astrid.activity.TaskListFragment;
 import com.todoroo.astrid.adapter.TaskAdapter;
 import com.todoroo.astrid.adapter.TaskAdapter.OnCompletedTaskListener;
 import com.todoroo.astrid.api.Filter;
-import com.todoroo.astrid.data.Metadata;
 import com.todoroo.astrid.data.Task;
 import com.todoroo.astrid.service.MetadataService;
 import com.todoroo.astrid.service.TaskService;
 import com.todoroo.astrid.service.ThemeService;
-import com.todoroo.astrid.subtasks.OrderedListUpdater.Node;
-import com.todoroo.astrid.subtasks.OrderedListUpdater.OrderedListNodeVisitor;
 import com.todoroo.astrid.ui.DraggableListView;
 import com.todoroo.astrid.utility.AstridPreferences;
 
-public class OrderedListFragmentHelper<LIST> {
+public class AstridOrderedListFragmentHelper<LIST> implements OrderedListFragmentHelperInterface<LIST> {
+
 
     private final DisplayMetrics metrics = new DisplayMetrics();
-    private final OrderedListUpdater<LIST> updater;
+    private final AstridOrderedListUpdater<LIST> updater;
     private final TaskListFragment fragment;
 
     @Autowired TaskService taskService;
@@ -62,7 +54,7 @@ public class OrderedListFragmentHelper<LIST> {
 
     private LIST list;
 
-    public OrderedListFragmentHelper(TaskListFragment fragment, OrderedListUpdater<LIST> updater) {
+    public AstridOrderedListFragmentHelper(TaskListFragment fragment, AstridOrderedListUpdater<LIST> updater) {
         DependencyInjectionService.getInstance().inject(this);
         this.fragment = fragment;
         this.updater = updater;
@@ -122,14 +114,6 @@ public class OrderedListFragmentHelper<LIST> {
         updater.initialize(list, filter);
     }
 
-    public Property<?>[] taskProperties() {
-        ArrayList<Property<?>> properties = new ArrayList<Property<?>>(Arrays.asList(TaskAdapter.PROPERTIES));
-        properties.add(updater.indentProperty());
-        properties.add(updater.orderProperty());
-        return properties.toArray(new Property<?>[properties.size()]);
-    }
-
-
     private final DropListener dropListener = new DropListener() {
         @Override
         public void drop(int from, int to) {
@@ -139,13 +123,14 @@ public class OrderedListFragmentHelper<LIST> {
 
             try {
                 if(to >= getListView().getCount())
-                    updater.moveTo(getFilter(), list, targetTaskId, -1);
+                    updater.moveTo(list, getFilter(), targetTaskId, -1);
                 else
-                    updater.moveTo(getFilter(), list, targetTaskId, destinationTaskId);
+                    updater.moveTo(list, getFilter(), targetTaskId, destinationTaskId);
             } catch (Exception e) {
                 Log.e("drag", "Drag Error", e); //$NON-NLS-1$ //$NON-NLS-2$
             }
 
+            fragment.reconstructCursor();
             fragment.loadTaskListContent(true);
         }
     };
@@ -165,10 +150,12 @@ public class OrderedListFragmentHelper<LIST> {
             long targetTaskId = taskAdapter.getItemId(which);
             if (targetTaskId <= 0) return; // This can happen with gestures on empty parts of the list (e.g. extra space below tasks)
             try {
-                updater.indent(getFilter(), list, targetTaskId, delta);
+                updater.indent(list, getFilter(), targetTaskId, delta);
             } catch (Exception e) {
                 Log.e("drag", "Indent Error", e); //$NON-NLS-1$ //$NON-NLS-2$
             }
+
+            fragment.reconstructCursor();
             fragment.loadTaskListContent(true);
         }
     };
@@ -200,6 +187,8 @@ public class OrderedListFragmentHelper<LIST> {
         taskAdapter = new DraggableTaskAdapter(fragment, resource,
                 cursor, sqlQueryTemplate, false, null);
 
+        getTouchListView().setItemHightNormal(taskAdapter.computeFullRowHeight());
+
         taskAdapter.addOnCompletedTaskListener(new OnCompletedTaskListener() {
             @Override
             public void onCompletedTask(Task item, boolean newState) {
@@ -227,30 +216,11 @@ public class OrderedListFragmentHelper<LIST> {
         }
 
         @Override
-        public View newView(Context context, Cursor cursor, ViewGroup parent) {
-            View view = super.newView(context, cursor, parent);
-            view.getLayoutParams().height = Math.round(45 * metrics.density);
-
-            ViewHolder vh = (ViewHolder) view.getTag();
-
-            MarginLayoutParams rowParams = (MarginLayoutParams) vh.rowBody.getLayoutParams();
-            rowParams.topMargin = rowParams.bottomMargin = 0;
-
-            ViewGroup.LayoutParams pictureParams = vh.picture.getLayoutParams();
-            pictureParams.width = pictureParams.height = Math.round(38 * metrics.density);
-
-            pictureParams = vh.pictureBorder.getLayoutParams();
-            pictureParams.width = pictureParams.height = Math.round(38 * metrics.density);
-
-            return view;
-        }
-
-        @Override
         public synchronized void setFieldContentsAndVisibility(View view) {
             super.setFieldContentsAndVisibility(view);
 
             ViewHolder vh = (ViewHolder) view.getTag();
-            int indent = vh.task.getValue(updater.indentProperty());
+            int indent = updater.getIndentForTask(vh.task.getId());
             vh.rowBody.setPadding(Math.round(indent * 20 * metrics.density), 0, 0, 0);
         }
 
@@ -290,17 +260,9 @@ public class OrderedListFragmentHelper<LIST> {
         }
 
         final ArrayList<Long> chained = new ArrayList<Long>();
-        final int parentIndent = item.getValue(updater.indentProperty());
-        updater.applyToChildren(getFilter(), list, itemId, new OrderedListNodeVisitor() {
+        updater.applyToDescendants(itemId, new AstridOrderedListUpdater.OrderedListNodeVisitor() {
             @Override
-            public void visitNode(Node node) {
-                Task childTask = taskService.fetchById(node.taskId, Task.RECURRENCE);
-                if(!TextUtils.isEmpty(childTask.getValue(Task.RECURRENCE))) {
-                    Metadata metadata = updater.getTaskMetadata(list, node.taskId);
-                    metadata.setValue(updater.indentProperty(), parentIndent);
-                    metadataService.save(metadata);
-                }
-
+            public void visitNode(AstridOrderedListUpdater.Node node) {
                 model.setId(node.taskId);
                 model.setValue(Task.COMPLETION_DATE, completionDate);
                 taskService.save(model);
@@ -312,18 +274,55 @@ public class OrderedListFragmentHelper<LIST> {
         });
 
         if(chained.size() > 0) {
+            // move recurring items to item parent
+            TodorooCursor<Task> recurring = taskService.query(Query.select(Task.ID, Task.RECURRENCE).where(
+                    Criterion.and(Task.ID.in(chained.toArray(new Long[chained.size()])),
+                                   Task.RECURRENCE.isNotNull(), Functions.length(Task.RECURRENCE).gt(0))));
+            try {
+                Task t = new Task();
+                boolean madeChanges = false;
+                for (recurring.moveToFirst(); !recurring.isAfterLast(); recurring.moveToNext()) {
+                    t.clear();
+                    t.readFromCursor(recurring);
+                    if (!TextUtils.isEmpty(t.getValue(Task.RECURRENCE))) {
+                        updater.moveToParentOf(t.getId(), itemId);
+                        madeChanges = true;
+                    }
+                }
+
+                if (madeChanges) {
+                    updater.writeSerialization(list, updater.serializeTree(), true);
+                }
+            } finally {
+                recurring.close();
+            }
+
+
             chainedCompletions.put(itemId, chained);
             taskAdapter.notifyDataSetInvalidated();
         }
+    }
+
+    @Override
+    public Property<?>[] taskProperties() {
+        return fragment.taskProperties();
     }
 
     public void setList(LIST list) {
         this.list = list;
     }
 
+    public void onCreateTask(Task task) {
+        updater.onCreateTask(list, getFilter(), task.getId());
+        fragment.reconstructCursor();
+        fragment.loadTaskListContent(true);
+        fragment.selectCustomId(task.getId());
+    }
+
     public void onDeleteTask(Task task) {
-        updater.onDeleteTask(getFilter(), list, task.getId());
+        updater.onDeleteTask(list, getFilter(), task.getId());
         taskAdapter.notifyDataSetInvalidated();
     }
+
 
 }
