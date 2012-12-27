@@ -7,7 +7,7 @@ object General {
   val settings = Defaults.defaultSettings ++ Seq (
     name := "astrid-api",
     organization := "com.todoroo",
-    version := "1.0",
+    version := "1.0-SNAPSHOT",
     versionCode := 1,
     scalaVersion := "2.9.2",
     crossPaths := false,
